@@ -13,6 +13,8 @@ relogio = pygame.time.Clock()
 rodando = True
 
 raio = 14
+anda = 4
+
 x = compri / 2
 y = 620 - raio
 
@@ -27,6 +29,17 @@ while rodando:
 
     if not rodando:
         break
+
+    teclas = pygame.key.get_pressed()
+
+    if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
+        x -= anda
+
+    if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
+        x += anda
+
+    # Impede que o personagem saia pelas laterais.
+    x = max(raio, min(compri - raio, x))
 
     tela.fill((190, 225, 250))
 
