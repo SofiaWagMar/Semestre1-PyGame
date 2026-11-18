@@ -12,6 +12,10 @@ pygame.display.set_caption("Parkour da enchente")
 relogio = pygame.time.Clock()
 rodando = True
 
+raio = 14
+x = compri / 2
+y = 620 - raio
+
 while rodando:
     for evento in pygame.event.get():
         if evento.type == pygame.QUIT:
@@ -25,6 +29,13 @@ while rodando:
         break
 
     tela.fill((190, 225, 250))
+
+    pygame.draw.circle(
+        tela,
+        (110, 55, 170),
+        (int(x), int(y)),
+        raio,
+    )
 
     pygame.display.update()
     relogio.tick(vel)
