@@ -16,7 +16,6 @@ T_plat = 25
 D_plat = 85
 F_altura = altura + (T_plat - 1) * D_plat
 
-
 vel_agua = 1.50
 a_agua = 0.02
 
@@ -43,12 +42,12 @@ def criar_jogo():
             "largura": 110,
         })
 
- 
     return {
         "x": compri / 2,
         "y": plataformas[0]["y"] - raio,
         "velocidade_y": 0,
         "apoiado": True,
+        "vidas": 3,
         "agua_y": altura + 80,
         "camera_y": 0,
         "checkpoint": 0,
@@ -60,6 +59,21 @@ def criar_jogo():
 def atualizar_camera(jogo):
     topo_fase = altura - F_altura
     jogo["camera_y"] = max(topo_fase, min(0, jogo["y"] - 300))
+
+
+def perder_vida(jogo):
+    jogo["vidas"] -= 1
+
+    if jogo["vidas"] == 0:
+        jogo["estado"] = "perdeu"
+    else:
+        plataforma = jogo["plataformas"][jogo["checkpoint"]]
+        jogo["x"] = plataforma["x"] + plataforma["largura"] / 2
+        jogo["y"] = plataforma["y"] - raio
+        jogo["velocidade_y"] = 0
+        jogo["apoiado"] = True
+        jogo["agua_y"] = plataforma["y"] + 240
+        atualizar_camera(jogo)
 
 
 def atualizar_jogo(jogo, direcao, pular):
@@ -98,11 +112,12 @@ def atualizar_jogo(jogo, direcao, pular):
                 break
 
     atualizar_camera(jogo)
-    jogo["agua_y"] -= vel_agua + jogo["checkpoint"] * a_agua
-    tocou_agua = jogo["y"] + raio >= jogo["agua_y"]
 
+    jogo["agua_y"] -= vel_agua + jogo["checkpoint"] * a_agua
+
+    tocou_agua = jogo["y"] + raio >= jogo["agua_y"]
     if tocou_agua:
-        jogo["estado"] = "perdeu"
+        perder_vida(jogo)
 
 
 def escrever(tela, fonte, texto, x, y, cor=TEXTO):
@@ -131,11 +146,14 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande):
         pygame.draw.line(tela, (150, 220, 255),
                          (0, agua_tela), (compri, agua_tela), 4)
 
+    pygame.draw.rect(tela, BRANCO, (10, altura - 35, 85, 25))
+    escrever(tela, fonte_pequena, f"Vidas: {jogo['vidas']}", 18, altura - 31)
+
     if jogo["estado"] != "jogando":
         pygame.draw.rect(tela, TEXTO, (20, 250, compri - 40, 180))
 
-        titulo = "FIM DE JOGO D:"
-        mensagem = "Você perdeu, tenta ficar melhor no jogo pfv :("
+        titulo = "FIM DE JOGO"
+        mensagem = "A enchente venceu desta vez."
         imagem = fonte_grande.render(titulo, True, BRANCO)
         tela.blit(imagem, ((compri - imagem.get_width()) // 2, 275))
         escrever(tela, fonte_pequena, mensagem, 45, 330, BRANCO)
