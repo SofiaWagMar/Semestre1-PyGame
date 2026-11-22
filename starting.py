@@ -125,7 +125,7 @@ def perder_vida(jogo):
 
 # Vai atualizando o movimento, a gravidade, as plataformas que quebram e a lava.
 # E verifica vitória e perda de vida.
-def atualizar_jogo(jogo, direcao, pular, agora=None):
+def atualizar_jogo(jogo, direcao, pular, agora=None, som_pulo=None):
     if jogo["estado"] != "jogando":
         return
 
@@ -154,6 +154,8 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
     if pular and jogo["apoiado"]:
         jogo["velocidade_y"] = pulo
         jogo["apoiado"] = False
+        if som_pulo is not None:
+            som_pulo.play()
 
     pe_anterior = jogo["y"] + raio
 
@@ -533,6 +535,10 @@ def main():
     # Busca as imagens na mesma pasta deste arquivo: imagem3.png é o menu e imagem2.png é o fundo da fase.
     pasta = Path(__file__).resolve().parent
 
+    # Adicionando o audio do pulo
+    pygame.mixer.init()
+    som_pulo = pygame.mixer.Sound(str(pasta / "pulo_1s.wav"))
+
     
     fundo_menu = pygame.image.load(
         str(pasta / "imagem3.png")
@@ -655,6 +661,7 @@ def main():
                 jogo,
                 direcao,
                 pular,
+                som_pulo=som_pulo,
             )
 
             desenhar_jogo(
