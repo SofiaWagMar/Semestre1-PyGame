@@ -7,6 +7,10 @@ compri = 420
 altura = 700
 vel = 60
 
+# Tamanho visual da personagem.
+ALTURA_PERSONAGEM = 64
+LARGURA_MAX_PERSONAGEM = 56
+
 raio = 14
 gra = 0.5
 pulo = -12
@@ -23,7 +27,6 @@ a_agua = 0.02
 LARANJA = (235, 130, 35)
 VERMELHO = (220, 65, 70)
 AZUL = (35, 135, 225)
-PERSONAGEM = (110, 55, 170)
 TEXTO = (25, 40, 65)
 BRANCO = (255, 255, 255)
 
@@ -66,6 +69,7 @@ def criar_jogo():
         "y": plataformas[0]["y"] - raio,
         "velocidade_y": 0,
         "apoiado": True,
+        "olhando": "direita",
         "plataforma_atual": 0,
         "vidas": 3,
         "agua_y": altura + 80,
@@ -78,7 +82,10 @@ def criar_jogo():
 
 def atualizar_camera(jogo):
     topo_fase = altura - F_altura
-    jogo["camera_y"] = max(topo_fase, min(0, jogo["y"] - 300))
+    jogo["camera_y"] = max(
+        topo_fase,
+        min(0, jogo["y"] - 300),
+    )
 
 
 def perder_vida(jogo):
@@ -121,6 +128,12 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
                     jogo["apoiado"] = False
                     jogo["plataforma_atual"] = None
 
+    # Guarda o último lado usado.
+    if direcao < 0:
+        jogo["olhando"] = "esquerda"
+    elif direcao > 0:
+        jogo["olhando"] = "direita"
+
     jogo["x"] += direcao * anda
     jogo["x"] = max(raio, min(compri - raio, jogo["x"]))
 
@@ -129,6 +142,7 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
         jogo["apoiado"] = False
 
     pe_anterior = jogo["y"] + raio
+
     jogo["velocidade_y"] += gra
     jogo["y"] += jogo["velocidade_y"]
     jogo["apoiado"] = False
@@ -156,7 +170,10 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
                 jogo["velocidade_y"] = 0
                 jogo["apoiado"] = True
                 jogo["plataforma_atual"] = numero
-                jogo["checkpoint"] = max(jogo["checkpoint"], numero)
+                jogo["checkpoint"] = max(
+                    jogo["checkpoint"],
+                    numero,
+                )
 
                 if plataforma["fragil"] and plataforma["pisada_em"] is None:
                     plataforma["pisada_em"] = agora
@@ -180,7 +197,11 @@ def escrever(tela, fonte, texto, x, y, cor=TEXTO):
 
 def escrever_centralizado(tela, fonte, texto, y, cor=TEXTO):
     imagem = fonte.render(texto, True, cor)
-    tela.blit(imagem, ((compri - imagem.get_width()) // 2, y))
+
+    tela.blit(
+        imagem,
+        ((compri - imagem.get_width()) // 2, y),
+    )
 
 
 def desenhar_menu(tela, fonte, botoes):
@@ -198,44 +219,110 @@ def desenhar_menu(tela, fonte, botoes):
         pygame.draw.rect(tela, TEXTO, retangulo, 2)
 
         imagem = fonte.render(texto, True, TEXTO)
-        tela.blit(imagem, imagem.get_rect(center=retangulo.center))
+
+        tela.blit(
+            imagem,
+            imagem.get_rect(center=retangulo.center),
+        )
 
 
 def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
     tela.fill(BRANCO)
 
-    escrever_centralizado(tela, fonte_grande, "Como jogar", 130)
+    escrever_centralizado(
+        tela, fonte_grande,
+        "Como jogar", 130,
+    )
+
     escrever_centralizado(
         tela, fonte_pequena,
         "Suba pelas plataformas e escape da enchente!", 200,
     )
-    escrever_centralizado(tela, fonte, "A / D ou setas: mover", 270)
+
     escrever_centralizado(
-        tela, fonte, "Espaço ou seta para cima: pular", 315,
+        tela, fonte,
+        "A / D ou setas: mover", 270,
     )
+
+    escrever_centralizado(
+        tela, fonte,
+        "Espaço ou seta para cima: pular", 315,
+    )
+
     escrever_centralizado(
         tela, fonte_pequena,
         "Você tem 3 vidas. Evite tocar na água.", 380,
     )
+
     escrever_centralizado(
         tela, fonte_pequena,
         "R: recomeçar após ganhar ou perder", 420,
     )
+
     escrever_centralizado(
-        tela, fonte_pequena, "Esc: sair do jogo", 455,
+        tela, fonte_pequena,
+        "Esc: sair do jogo", 455,
     )
+
     escrever_centralizado(
         tela, fonte_pequena,
         "Vermelhas: quebram 2 segundos após pisar!", 495,
     )
+
     escrever_centralizado(
-        tela, fonte, "Pressione ESPAÇO para começar", 545,
+        tela, fonte,
+        "Pressione ESPAÇO para começar", 545,
     )
 
 
-def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
+def carregar_sprites(pasta):
+    sprites = {}
+
+    for pose in ("direita", "esquerda", "pulo"):
+        caminho = pasta / f"escaladora_{pose}.png"
+
+        imagem = pygame.image.load(
+            str(caminho)
+        ).convert_alpha()
+
+        # Remove as margens transparentes.
+        recorte = imagem.get_bounding_rect(min_alpha=8)
+
+        if recorte.width == 0 or recorte.height == 0:
+            raise ValueError(
+                f"A imagem {caminho.name} está totalmente transparente."
+            )
+
+        imagem = imagem.subsurface(recorte).copy()
+
+        # Aumenta a personagem mantendo a proporção.
+        escala = min(
+            ALTURA_PERSONAGEM / imagem.get_height(),
+            LARGURA_MAX_PERSONAGEM / imagem.get_width(),
+        )
+
+        tamanho = (
+            max(1, round(imagem.get_width() * escala)),
+            max(1, round(imagem.get_height() * escala)),
+        )
+
+        sprites[pose] = pygame.transform.smoothscale(
+            imagem,
+            tamanho,
+        )
+
+    return sprites
+
+
+def desenhar_jogo(
+    tela, jogo, fonte, fonte_pequena, fonte_grande, fundo, sprites
+):
     camera = jogo["camera_y"]
-    tela.blit(fundo, (0, int(altura - F_altura - camera)))
+
+    tela.blit(
+        fundo,
+        (0, int(altura - F_altura - camera)),
+    )
 
     for plataforma in jogo["plataformas"]:
         if plataforma["quebrada"]:
@@ -272,10 +359,13 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
 
             if plataforma["pisada_em"] is not None:
                 tempo_passado = (
-                    pygame.time.get_ticks() - plataforma["pisada_em"]
+                    pygame.time.get_ticks()
+                    - plataforma["pisada_em"]
                 )
+
                 restante = max(
-                    0, 1 - tempo_passado / T_quebra
+                    0,
+                    1 - tempo_passado / T_quebra,
                 )
 
                 pygame.draw.rect(
@@ -295,36 +385,73 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
     pygame.draw.line(
         tela, TEXTO,
         (bandeira_x, bandeira_y),
-        (bandeira_x, bandeira_y - 55), 3,
+        (bandeira_x, bandeira_y - 55),
+        3,
     )
+
     pygame.draw.rect(
         tela, (40, 165, 95),
         (bandeira_x, bandeira_y - 55, 32, 20),
     )
 
-    posicao = (int(jogo["x"]), int(jogo["y"] - camera))
-    pygame.draw.circle(tela, PERSONAGEM, posicao, raio)
-    pygame.draw.circle(tela, BRANCO, posicao, raio, 2)
+    # Usa a pose de pulo durante todo o tempo no ar.
+    if not jogo["apoiado"]:
+        pose = "pulo"
+    else:
+        pose = jogo["olhando"]
 
-    agua_tela = max(0, int(jogo["agua_y"] - camera))
+    imagem = sprites[pose]
+
+    # Mantém os pés alinhados à plataforma.
+    retangulo = imagem.get_rect(
+        midbottom=(
+            int(jogo["x"]),
+            int(jogo["y"] - camera + raio),
+        )
+    )
+
+    # Evita cortar a personagem nas laterais da janela.
+    retangulo.left = max(
+        0,
+        min(compri - retangulo.width, retangulo.left),
+    )
+
+    tela.blit(imagem, retangulo)
+
+    agua_tela = max(
+        0,
+        int(jogo["agua_y"] - camera),
+    )
 
     if agua_tela < altura:
         pygame.draw.rect(
-            tela, AZUL, (0, agua_tela, compri, altura - agua_tela)
-        )
-        pygame.draw.line(
-            tela, (150, 220, 255),
-            (0, agua_tela), (compri, agua_tela), 4,
+            tela, AZUL,
+            (0, agua_tela, compri, altura - agua_tela),
         )
 
-    pygame.draw.rect(tela, BRANCO, (10, altura - 35, 85, 25))
+        pygame.draw.line(
+            tela, (150, 220, 255),
+            (0, agua_tela),
+            (compri, agua_tela),
+            4,
+        )
+
+    pygame.draw.rect(
+        tela, BRANCO,
+        (10, altura - 35, 85, 25),
+    )
+
     escrever(
         tela, fonte_pequena,
-        f"Vidas: {jogo['vidas']}", 18, altura - 31,
+        f"Vidas: {jogo['vidas']}",
+        18, altura - 31,
     )
 
     if jogo["estado"] != "jogando":
-        pygame.draw.rect(tela, TEXTO, (20, 250, compri - 40, 180))
+        pygame.draw.rect(
+            tela, TEXTO,
+            (20, 250, compri - 40, 180),
+        )
 
         if jogo["estado"] == "venceu":
             titulo = "VOCE ESCAPOU!"
@@ -333,13 +460,24 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
             titulo = "FIM DE JOGO"
             mensagem = "A enchente venceu desta vez."
 
-        imagem = fonte_grande.render(titulo, True, BRANCO)
-        tela.blit(imagem, ((compri - imagem.get_width()) // 2, 275))
+        imagem = fonte_grande.render(
+            titulo, True, BRANCO,
+        )
 
-        escrever(tela, fonte_pequena, mensagem, 45, 330, BRANCO)
+        tela.blit(
+            imagem,
+            ((compri - imagem.get_width()) // 2, 275),
+        )
+
         escrever(
             tela, fonte_pequena,
-            "R: jogar de novo | Esc: sair", 45, 375, BRANCO,
+            mensagem, 45, 330, BRANCO,
+        )
+
+        escrever(
+            tela, fonte_pequena,
+            "R: jogar de novo | Esc: sair",
+            45, 375, BRANCO,
         )
 
 
@@ -347,16 +485,31 @@ def main():
     pygame.display.init()
     pygame.font.init()
 
-    tela = pygame.display.set_mode((compri, altura))
-    pygame.display.set_caption("Parkour da enchente")
+    tela = pygame.display.set_mode(
+        (compri, altura)
+    )
+
+    pygame.display.set_caption(
+        "Parkour da enchente"
+    )
 
     pasta = Path(__file__).resolve().parent
+
+    # Carrega as imagens da personagem.
+    sprites = carregar_sprites(pasta)
+
+    # Carrega a imagem de fundo.
     fundo = pygame.image.load(
         str(pasta / "imagem.png")
     ).convert()
-    fundo = pygame.transform.scale(fundo, (compri, F_altura))
+
+    fundo = pygame.transform.scale(
+        fundo,
+        (compri, F_altura),
+    )
 
     relogio = pygame.time.Clock()
+
     fonte = pygame.font.Font(None, 30)
     fonte_pequena = pygame.font.Font(None, 23)
     fonte_grande = pygame.font.Font(None, 42)
@@ -378,10 +531,14 @@ def main():
             if evento.type == pygame.QUIT:
                 rodando = False
 
-            elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            elif (
+                evento.type == pygame.MOUSEBUTTONDOWN
+                and evento.button == 1
+            ):
                 if tela_atual == "menu":
                     if botoes["Jogar"].collidepoint(evento.pos):
                         tela_atual = "instrucoes"
+
                     elif botoes["Sair"].collidepoint(evento.pos):
                         rodando = False
 
@@ -389,24 +546,43 @@ def main():
                 if evento.key == pygame.K_ESCAPE:
                     rodando = False
 
-                elif tela_atual == "instrucoes" and evento.key == pygame.K_SPACE:
+                elif (
+                    tela_atual == "instrucoes"
+                    and evento.key == pygame.K_SPACE
+                ):
                     jogo = criar_jogo()
                     tela_atual = "jogo"
 
                 elif tela_atual == "jogo":
-                    if evento.key in (pygame.K_SPACE, pygame.K_UP):
+                    if evento.key in (
+                        pygame.K_SPACE,
+                        pygame.K_UP,
+                    ):
                         pular = True
-                    elif evento.key == pygame.K_r and jogo["estado"] != "jogando":
+
+                    elif (
+                        evento.key == pygame.K_r
+                        and jogo["estado"] != "jogando"
+                    ):
                         jogo = criar_jogo()
 
         if not rodando:
             break
 
         if tela_atual == "menu":
-            desenhar_menu(tela, fonte_grande, botoes)
+            desenhar_menu(
+                tela,
+                fonte_grande,
+                botoes,
+            )
 
         elif tela_atual == "instrucoes":
-            desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande)
+            desenhar_instrucoes(
+                tela,
+                fonte,
+                fonte_pequena,
+                fonte_grande,
+            )
 
         else:
             teclas = pygame.key.get_pressed()
@@ -418,9 +594,20 @@ def main():
             if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
                 direcao += 1
 
-            atualizar_jogo(jogo, direcao, pular)
+            atualizar_jogo(
+                jogo,
+                direcao,
+                pular,
+            )
+
             desenhar_jogo(
-                tela, jogo, fonte, fonte_pequena, fonte_grande, fundo
+                tela,
+                jogo,
+                fonte,
+                fonte_pequena,
+                fonte_grande,
+                fundo,
+                sprites,
             )
 
         pygame.display.update()
