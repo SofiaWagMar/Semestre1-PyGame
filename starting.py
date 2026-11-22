@@ -2,12 +2,11 @@ import random
 from pathlib import Path
 import pygame
 
-# ===== Configurações =====
+# ===== Confirgurações =====
 compri = 420
 altura = 700
 vel = 60
 
-# Tamanho visual da personagem.
 ALTURA_PERSONAGEM = 64
 LARGURA_MAX_PERSONAGEM = 56
 
@@ -26,7 +25,8 @@ a_agua = 0.02
 
 LARANJA = (235, 130, 35)
 VERMELHO = (220, 65, 70)
-AZUL = (35, 135, 225)
+LARANJA_ESCURO = (210, 105, 20)
+LARANJA_CLARO = (255, 190, 100)
 TEXTO = (25, 40, 65)
 BRANCO = (255, 255, 255)
 
@@ -128,7 +128,6 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
                     jogo["apoiado"] = False
                     jogo["plataforma_atual"] = None
 
-    # Guarda o último lado usado.
     if direcao < 0:
         jogo["olhando"] = "esquerda"
     elif direcao > 0:
@@ -204,15 +203,15 @@ def escrever_centralizado(tela, fonte, texto, y, cor=TEXTO):
     )
 
 
-def desenhar_menu(tela, fonte, botoes):
-    tela.fill(BRANCO)
+def desenhar_menu(tela, fonte, botoes, fundo_menu):
+    tela.blit(fundo_menu, (0, 0))
     mouse = pygame.mouse.get_pos()
 
     for texto, retangulo in botoes.items():
         cor = (
-            (220, 220, 220)
+            LARANJA_ESCURO
             if retangulo.collidepoint(mouse)
-            else (245, 245, 245)
+            else LARANJA
         )
 
         pygame.draw.rect(tela, cor, retangulo)
@@ -285,7 +284,6 @@ def carregar_sprites(pasta):
             str(caminho)
         ).convert_alpha()
 
-        # Remove as margens transparentes.
         recorte = imagem.get_bounding_rect(min_alpha=8)
 
         if recorte.width == 0 or recorte.height == 0:
@@ -295,7 +293,7 @@ def carregar_sprites(pasta):
 
         imagem = imagem.subsurface(recorte).copy()
 
-        # Aumenta a personagem mantendo a proporção.
+        
         escala = min(
             ALTURA_PERSONAGEM / imagem.get_height(),
             LARGURA_MAX_PERSONAGEM / imagem.get_width(),
@@ -394,7 +392,6 @@ def desenhar_jogo(
         (bandeira_x, bandeira_y - 55, 32, 20),
     )
 
-    # Usa a pose de pulo durante todo o tempo no ar.
     if not jogo["apoiado"]:
         pose = "pulo"
     else:
@@ -402,7 +399,6 @@ def desenhar_jogo(
 
     imagem = sprites[pose]
 
-    # Mantém os pés alinhados à plataforma.
     retangulo = imagem.get_rect(
         midbottom=(
             int(jogo["x"]),
@@ -410,7 +406,6 @@ def desenhar_jogo(
         )
     )
 
-    # Evita cortar a personagem nas laterais da janela.
     retangulo.left = max(
         0,
         min(compri - retangulo.width, retangulo.left),
@@ -425,12 +420,12 @@ def desenhar_jogo(
 
     if agua_tela < altura:
         pygame.draw.rect(
-            tela, AZUL,
+            tela, LARANJA,
             (0, agua_tela, compri, altura - agua_tela),
         )
 
         pygame.draw.line(
-            tela, (150, 220, 255),
+            tela, LARANJA_CLARO,
             (0, agua_tela),
             (compri, agua_tela),
             4,
@@ -495,12 +490,20 @@ def main():
 
     pasta = Path(__file__).resolve().parent
 
-    # Carrega as imagens da personagem.
+    
+    fundo_menu = pygame.image.load(
+        str(pasta / "imagem3.png")
+    ).convert()
+    fundo_menu = pygame.transform.smoothscale(
+        fundo_menu, (compri, altura)
+    )
+
+    
     sprites = carregar_sprites(pasta)
 
-    # Carrega a imagem de fundo.
+    
     fundo = pygame.image.load(
-        str(pasta / "imagem.png")
+        str(pasta / "imagem2.png")
     ).convert()
 
     fundo = pygame.transform.scale(
@@ -574,6 +577,7 @@ def main():
                 tela,
                 fonte_grande,
                 botoes,
+                fundo_menu,
             )
 
         elif tela_atual == "instrucoes":
