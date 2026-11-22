@@ -16,10 +16,12 @@ T_plat = 25
 D_plat = 110
 F_altura = altura + (T_plat - 1) * D_plat
 
+T_quebra = 2000
 vel_agua = 1.50
 a_agua = 0.02
 
 LARANJA = (235, 130, 35)
+VERMELHO = (220, 65, 70)
 AZUL = (35, 135, 225)
 PERSONAGEM = (110, 55, 170)
 TEXTO = (25, 40, 65)
@@ -27,9 +29,15 @@ BRANCO = (255, 255, 255)
 
 
 def criar_jogo():
-    plataformas = [
-        {"x": 125, "y": 620, "largura": 170},
-    ]
+    plataformas = [{
+        "x": 125,
+        "y": 620,
+        "largura": 170,
+        "fragil": False,
+        "pisada_em": None,
+        "quebrada": False,
+    }]
+
     centro = compri / 2
 
     for numero in range(1, T_plat):
@@ -48,6 +56,9 @@ def criar_jogo():
             "x": centro - largura / 2,
             "y": 620 - numero * D_plat,
             "largura": largura,
+            "fragil": numero % 3 == 2 and numero != T_plat - 1,
+            "pisada_em": None,
+            "quebrada": False,
         })
 
     return {
@@ -55,6 +66,7 @@ def criar_jogo():
         "y": plataformas[0]["y"] - raio,
         "velocidade_y": 0,
         "apoiado": True,
+        "plataforma_atual": 0,
         "vidas": 3,
         "agua_y": altura + 80,
         "camera_y": 0,
@@ -75,20 +87,39 @@ def perder_vida(jogo):
     if jogo["vidas"] == 0:
         jogo["estado"] = "perdeu"
     else:
+        for plataforma in jogo["plataformas"]:
+            plataforma["pisada_em"] = None
+            plataforma["quebrada"] = False
+
         plataforma = jogo["plataformas"][jogo["checkpoint"]]
 
         jogo["x"] = plataforma["x"] + plataforma["largura"] / 2
         jogo["y"] = plataforma["y"] - raio
         jogo["velocidade_y"] = 0
         jogo["apoiado"] = True
+        jogo["plataforma_atual"] = jogo["checkpoint"]
         jogo["agua_y"] = plataforma["y"] + 240
 
         atualizar_camera(jogo)
 
 
-def atualizar_jogo(jogo, direcao, pular):
+def atualizar_jogo(jogo, direcao, pular, agora=None):
     if jogo["estado"] != "jogando":
         return
+
+    if agora is None:
+        agora = pygame.time.get_ticks()
+
+    for numero in range(len(jogo["plataformas"])):
+        plataforma = jogo["plataformas"][numero]
+
+        if plataforma["fragil"] and plataforma["pisada_em"] is not None:
+            if agora - plataforma["pisada_em"] >= T_quebra:
+                plataforma["quebrada"] = True
+
+                if jogo["plataforma_atual"] == numero:
+                    jogo["apoiado"] = False
+                    jogo["plataforma_atual"] = None
 
     jogo["x"] += direcao * anda
     jogo["x"] = max(raio, min(compri - raio, jogo["x"]))
@@ -101,10 +132,14 @@ def atualizar_jogo(jogo, direcao, pular):
     jogo["velocidade_y"] += gra
     jogo["y"] += jogo["velocidade_y"]
     jogo["apoiado"] = False
+    jogo["plataforma_atual"] = None
 
     if jogo["velocidade_y"] >= 0:
         for numero in range(len(jogo["plataformas"]) - 1, -1, -1):
             plataforma = jogo["plataformas"][numero]
+
+            if plataforma["quebrada"]:
+                continue
 
             sobre_plataforma = (
                 jogo["x"] + raio > plataforma["x"]
@@ -120,7 +155,12 @@ def atualizar_jogo(jogo, direcao, pular):
                 jogo["y"] = plataforma["y"] - raio
                 jogo["velocidade_y"] = 0
                 jogo["apoiado"] = True
+                jogo["plataforma_atual"] = numero
                 jogo["checkpoint"] = max(jogo["checkpoint"], numero)
+
+                if plataforma["fragil"] and plataforma["pisada_em"] is None:
+                    plataforma["pisada_em"] = agora
+
                 break
 
     atualizar_camera(jogo)
@@ -185,6 +225,10 @@ def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
         tela, fonte_pequena, "Esc: sair do jogo", 455,
     )
     escrever_centralizado(
+        tela, fonte_pequena,
+        "Vermelhas: quebram 2 segundos após pisar!", 495,
+    )
+    escrever_centralizado(
         tela, fonte, "Pressione ESPAÇO para começar", 545,
     )
 
@@ -194,15 +238,55 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
     tela.blit(fundo, (0, int(altura - F_altura - camera)))
 
     for plataforma in jogo["plataformas"]:
+        if plataforma["quebrada"]:
+            continue
+
+        y_tela = int(plataforma["y"] - camera)
+        cor = VERMELHO if plataforma["fragil"] else LARANJA
+
         pygame.draw.rect(
-            tela, LARANJA,
+            tela, cor,
             (
                 int(plataforma["x"]),
-                int(plataforma["y"] - camera),
+                y_tela,
                 plataforma["largura"],
                 16,
             ),
         )
+
+        if plataforma["fragil"]:
+            centro_x = int(
+                plataforma["x"] + plataforma["largura"] / 2
+            )
+
+            pygame.draw.lines(
+                tela, TEXTO, False,
+                [
+                    (centro_x + 3, y_tela),
+                    (centro_x - 3, y_tela + 6),
+                    (centro_x + 3, y_tela + 10),
+                    (centro_x - 3, y_tela + 15),
+                ],
+                2,
+            )
+
+            if plataforma["pisada_em"] is not None:
+                tempo_passado = (
+                    pygame.time.get_ticks() - plataforma["pisada_em"]
+                )
+                restante = max(
+                    0, 1 - tempo_passado / T_quebra
+                )
+
+                pygame.draw.rect(
+                    tela, BRANCO,
+                    (
+                        int(plataforma["x"]),
+                        y_tela + 17,
+                        int(plataforma["largura"] * restante),
+                        3,
+                    ),
+                )
 
     ultima = jogo["plataformas"][-1]
     bandeira_x = int(ultima["x"] + ultima["largura"] / 2)
