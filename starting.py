@@ -13,12 +13,11 @@ pulo = -12
 anda = 4
 
 T_plat = 25
-D_plat = 85
+D_plat = 110
 F_altura = altura + (T_plat - 1) * D_plat
 
 vel_agua = 1.50
 a_agua = 0.02
-
 
 LARANJA = (235, 130, 35)
 AZUL = (35, 135, 225)
@@ -34,13 +33,21 @@ def criar_jogo():
     centro = compri / 2
 
     for numero in range(1, T_plat):
-        centro += random.choice([-95, -65, 65, 95])
-        centro = max(70, min(compri - 70, centro))
+        largura = random.choice([80, 100, 125, 150])
+        centros_possiveis = []
+
+        for deslocamento in [-135, -115, 115, 135]:
+            novo_centro = centro + deslocamento
+
+            if largura / 2 + 18 <= novo_centro <= compri - largura / 2 - 18:
+                centros_possiveis.append(novo_centro)
+
+        centro = random.choice(centros_possiveis)
 
         plataformas.append({
-            "x": centro - 55,
+            "x": centro - largura / 2,
             "y": 620 - numero * D_plat,
-            "largura": 110,
+            "largura": largura,
         })
 
     return {
@@ -157,12 +164,12 @@ def desenhar_menu(tela, fonte, botoes):
 def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
     tela.fill(BRANCO)
 
-    escrever_centralizado(tela, fonte_grande, "Como jogar:", 130)
+    escrever_centralizado(tela, fonte_grande, "Como jogar", 130)
     escrever_centralizado(
         tela, fonte_pequena,
         "Suba pelas plataformas e escape da enchente!", 200,
     )
-    escrever_centralizado(tela, fonte, "botões de A / D ou setas: mover", 270)
+    escrever_centralizado(tela, fonte, "A / D ou setas: mover", 270)
     escrever_centralizado(
         tela, fonte, "Espaço ou seta para cima: pular", 315,
     )
