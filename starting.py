@@ -31,7 +31,11 @@ TEXTO = (25, 40, 65)
 BRANCO = (255, 255, 255)
 
 
-def criar_jogo():
+def criar_jogo(fase=1):
+    total_plataformas = T_plat
+    quantidade_frageis = (total_plataformas - 2) * fase // (fase + 2)
+    frageis = random.sample(range(1, total_plataformas - 1), quantidade_frageis)
+
     plataformas = [{
         "x": 125,
         "y": 620,
@@ -43,7 +47,7 @@ def criar_jogo():
 
     centro = compri / 2
 
-    for numero in range(1, T_plat):
+    for numero in range(1, total_plataformas):
         largura = random.choice([80, 100, 125, 150])
         centros_possiveis = []
 
@@ -59,12 +63,16 @@ def criar_jogo():
             "x": centro - largura / 2,
             "y": 620 - numero * D_plat,
             "largura": largura,
-            "fragil": numero % 3 == 2 and numero != T_plat - 1,
+            "fragil": numero in frageis,
             "pisada_em": None,
             "quebrada": False,
         })
 
     return {
+        "fase": fase,
+        "altura_fase": altura + (total_plataformas - 1) * D_plat,
+        "vel_agua": vel_agua + (fase - 1) * 0.75,
+        "a_agua": a_agua + (fase - 1) * 0.02,
         "x": compri / 2,
         "y": plataformas[0]["y"] - raio,
         "velocidade_y": 0,
@@ -81,7 +89,7 @@ def criar_jogo():
 
 
 def atualizar_camera(jogo):
-    topo_fase = altura - F_altura
+    topo_fase = altura - jogo["altura_fase"]
     jogo["camera_y"] = max(
         topo_fase,
         min(0, jogo["y"] - 300),
@@ -181,11 +189,11 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
 
     atualizar_camera(jogo)
 
-    jogo["agua_y"] -= vel_agua + jogo["checkpoint"] * a_agua
+    jogo["agua_y"] -= jogo["vel_agua"] + jogo["checkpoint"] * jogo["a_agua"]
 
     if jogo["y"] + raio >= jogo["agua_y"]:
         perder_vida(jogo)
-    elif jogo["checkpoint"] == T_plat - 1:
+    elif jogo["checkpoint"] == len(jogo["plataformas"]) - 1:
         jogo["estado"] = "venceu"
 
 
@@ -255,7 +263,7 @@ def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
 
     escrever_centralizado(
         tela, fonte_pequena,
-        "R: recomeçar após ganhar ou perder", 420,
+        "R: avançar ou recomeçar da fase 1", 420,
     )
 
     escrever_centralizado(
@@ -355,7 +363,7 @@ def desenhar_jogo(
 
     tela.blit(
         fundo,
-        (0, int(altura - F_altura - camera)),
+        (0, int(altura - jogo["altura_fase"] - camera)),
     )
 
     for plataforma in jogo["plataformas"]:
@@ -454,12 +462,12 @@ def desenhar_jogo(
 
     pygame.draw.rect(
         tela, BRANCO,
-        (10, altura - 35, 85, 25),
+        (10, altura - 35, 200, 25),
     )
 
     escrever(
         tela, fonte_pequena,
-        f"Vidas: {jogo['vidas']}",
+        f"Vidas: {jogo['vidas']}   Fase: {jogo['fase']}",
         18, altura - 31,
     )
 
@@ -471,10 +479,12 @@ def desenhar_jogo(
 
         if jogo["estado"] == "venceu":
             titulo = "VOCE ESCAPOU!"
-            mensagem = "Voce chegou ao lugar seguro."
+            mensagem = f"Fase {jogo['fase']} concluida!"
+            comando = "R: proxima fase | Esc: sair"
         else:
             titulo = "FIM DE JOGO"
             mensagem = "A lava te alcançou desta vez."
+            comando = "R: voltar a fase 1 | Esc: sair"
 
         imagem = fonte_grande.render(
             titulo, True, BRANCO,
@@ -492,7 +502,7 @@ def desenhar_jogo(
 
         escrever(
             tela, fonte_pequena,
-            "R: jogar de novo | Esc: sair",
+            comando,
             45, 375, BRANCO,
         )
 
@@ -524,12 +534,12 @@ def main():
     lava = carregar_lava(pasta)
 
     
-    fundo = pygame.image.load(
+    fundo_original = pygame.image.load(
         str(pasta / "imagem2.png")
     ).convert()
 
     fundo = pygame.transform.scale(
-        fundo,
+        fundo_original,
         (compri, F_altura),
     )
 
@@ -589,7 +599,14 @@ def main():
                         evento.key == pygame.K_r
                         and jogo["estado"] != "jogando"
                     ):
-                        jogo = criar_jogo()
+                        fase = 1
+                        if jogo["estado"] == "venceu":
+                            fase = jogo["fase"] + 1
+                        jogo = criar_jogo(fase)
+                        fundo = pygame.transform.scale(
+                            fundo_original,
+                            (compri, jogo["altura_fase"]),
+                        )
 
         if not rodando:
             break
