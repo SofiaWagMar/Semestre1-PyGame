@@ -31,6 +31,8 @@ TEXTO = (25, 40, 65)
 BRANCO = (255, 255, 255)
 
 
+# Cria as 25 plataformas e as configurações do jogador; 
+# Coloca que a fase define a dificuldade da lava e a frequência de plataformas frágeis.
 def criar_jogo(fase=1):
     total_plataformas = T_plat
     quantidade_frageis = (total_plataformas - 2) * fase // (fase + 2)
@@ -88,6 +90,7 @@ def criar_jogo(fase=1):
     }
 
 
+# Faz a câmera acompanhar a subida do personagem 
 def atualizar_camera(jogo):
     topo_fase = altura - jogo["altura_fase"]
     jogo["camera_y"] = max(
@@ -96,6 +99,8 @@ def atualizar_camera(jogo):
     )
 
 
+# Faz com que quando o jogador perde uma vida ele
+# volte a última plataforma alcançada ou encerra a partida quando as vidas acabam.
 def perder_vida(jogo):
     jogo["vidas"] -= 1
 
@@ -118,6 +123,8 @@ def perder_vida(jogo):
         atualizar_camera(jogo)
 
 
+# Vai atualizando o movimento, a gravidade, as plataformas que quebram e a lava.
+# E verifica vitória e perda de vida.
 def atualizar_jogo(jogo, direcao, pular, agora=None):
     if jogo["estado"] != "jogando":
         return
@@ -155,6 +162,7 @@ def atualizar_jogo(jogo, direcao, pular, agora=None):
     jogo["apoiado"] = False
     jogo["plataforma_atual"] = None
 
+    # Só permite pousar ao cair, quando os pés cruzam o topo de uma plataforma.
     if jogo["velocidade_y"] >= 0:
         for numero in range(len(jogo["plataformas"]) - 1, -1, -1):
             plataforma = jogo["plataformas"][numero]
@@ -282,6 +290,7 @@ def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
     )
 
 
+# Carrega as poses da personagem, recorta as bordas transparentes e ajusta o tamanho mantendo a proporção.
 def carregar_sprites(pasta):
     sprites = {}
 
@@ -320,6 +329,7 @@ def carregar_sprites(pasta):
     return sprites
 
 
+# Prepara a imagem da lava (separa o topo e uma parte que pode ser repetida para preencher a área abaixo)
 def carregar_lava(pasta):
     imagem = pygame.image.load(str(pasta / "lava.png")).convert_alpha()
     recorte = imagem.get_bounding_rect(min_alpha=8)
@@ -356,6 +366,7 @@ def desenhar_lava(tela, y_lava, lava):
         tela.blit(topo, (0, y_lava))
 
 
+# Coloca o cenário e os elementos na posição da câmera, além das vidas, da fase e da mensagem final.
 def desenhar_jogo(
     tela, jogo, fonte, fonte_pequena, fonte_grande, fundo, sprites, lava
 ):
@@ -519,6 +530,7 @@ def main():
         "Parkour da lava"
     )
 
+    # Busca as imagens na mesma pasta deste arquivo: imagem3.png é o menu e imagem2.png é o fundo da fase.
     pasta = Path(__file__).resolve().parent
 
     
@@ -559,6 +571,7 @@ def main():
 
     rodando = True
 
+    # Repete a leitura dos comandos, a atualização do jogo e o desenho da tela até a pessoa sair.
     while rodando:
         pular = False
 
@@ -599,6 +612,7 @@ def main():
                         evento.key == pygame.K_r
                         and jogo["estado"] != "jogando"
                     ):
+                        # R avança após a vitória; se acabaram as vidas, recomeça na fase 1.
                         fase = 1
                         if jogo["estado"] == "venceu":
                             fase = jogo["fase"] + 1
