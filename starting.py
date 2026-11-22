@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 import pygame
 
 # ===== Configurações =====
@@ -18,7 +19,7 @@ F_altura = altura + (T_plat - 1) * D_plat
 vel_agua = 1.50
 a_agua = 0.02
 
-CEU = (190, 225, 250)
+
 LARANJA = (235, 130, 35)
 AZUL = (35, 135, 225)
 PERSONAGEM = (110, 55, 170)
@@ -27,16 +28,14 @@ BRANCO = (255, 255, 255)
 
 
 def criar_jogo():
-    plataformas = [
-        {"x": 125, "y": 620, "largura": 170},
-    ]
-
+    plataformas = [{
+        "x": 125, "y": 620, "largura": 170,
+    }]
     centro = compri / 2
 
     for numero in range(1, T_plat):
         centro += random.choice([-95, -65, 65, 95])
         centro = max(70, min(compri - 70, centro))
-
         plataformas.append({
             "x": centro - 55,
             "y": 620 - numero * D_plat,
@@ -69,43 +68,37 @@ def perder_vida(jogo):
         jogo["estado"] = "perdeu"
     else:
         plataforma = jogo["plataformas"][jogo["checkpoint"]]
-
         jogo["x"] = plataforma["x"] + plataforma["largura"] / 2
         jogo["y"] = plataforma["y"] - raio
         jogo["velocidade_y"] = 0
         jogo["apoiado"] = True
         jogo["agua_y"] = plataforma["y"] + 240
-
         atualizar_camera(jogo)
 
 
-def atualizar_jogo(jogo, direcao, pular_agora):
+def atualizar_jogo(jogo, direcao, pular):
     if jogo["estado"] != "jogando":
         return
 
     jogo["x"] += direcao * anda
     jogo["x"] = max(raio, min(compri - raio, jogo["x"]))
 
-    if pular_agora and jogo["apoiado"]:
+    if pular and jogo["apoiado"]:
         jogo["velocidade_y"] = pulo
         jogo["apoiado"] = False
 
     pe_anterior = jogo["y"] + raio
-
     jogo["velocidade_y"] += gra
     jogo["y"] += jogo["velocidade_y"]
-
     jogo["apoiado"] = False
 
     if jogo["velocidade_y"] >= 0:
         for numero in range(len(jogo["plataformas"]) - 1, -1, -1):
             plataforma = jogo["plataformas"][numero]
-
             sobre_plataforma = (
                 jogo["x"] + raio > plataforma["x"]
                 and jogo["x"] - raio < plataforma["x"] + plataforma["largura"]
             )
-
             cruzou_topo = (
                 pe_anterior <= plataforma["y"]
                 and jogo["y"] + raio >= plataforma["y"]
@@ -122,9 +115,9 @@ def atualizar_jogo(jogo, direcao, pular_agora):
 
     jogo["agua_y"] -= vel_agua + jogo["checkpoint"] * a_agua
 
-    if jogo["y"] + raio >= jogo["agua_y"]:
+    tocou_agua = jogo["y"] + raio >= jogo["agua_y"]
+    if tocou_agua:
         perder_vida(jogo)
-
     elif jogo["checkpoint"] == T_plat - 1:
         jogo["estado"] = "venceu"
 
@@ -134,87 +127,41 @@ def escrever(tela, fonte, texto, x, y, cor=TEXTO):
     tela.blit(imagem, (x, y))
 
 
-def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande):
+def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo):
     camera = jogo["camera_y"]
-
-    tela.fill(CEU)
+    tela.blit(fundo, (0, int(altura - F_altura - camera)))
 
     for plataforma in jogo["plataformas"]:
-        pygame.draw.rect(
-            tela,
-            LARANJA,
-            (
-                int(plataforma["x"]),
-                int(plataforma["y"] - camera),
-                plataforma["largura"],
-                16,
-            ),
-        )
+        y_tela = int(plataforma["y"] - camera)
+        pygame.draw.rect(tela, LARANJA, (
+            int(plataforma["x"]), y_tela, plataforma["largura"], 16
+        ))
 
     ultima = jogo["plataformas"][-1]
-
     bandeira_x = int(ultima["x"] + ultima["largura"] / 2)
     bandeira_y = int(ultima["y"] - camera)
+    pygame.draw.line(tela, TEXTO,
+                     (bandeira_x, bandeira_y),
+                     (bandeira_x, bandeira_y - 55), 3)
+    pygame.draw.rect(tela, (40, 165, 95),
+                     (bandeira_x, bandeira_y - 55, 32, 20))
 
-    pygame.draw.line(
-        tela,
-        TEXTO,
-        (bandeira_x, bandeira_y),
-        (bandeira_x, bandeira_y - 55),
-        3,
-    )
-
-    pygame.draw.rect(
-        tela,
-        (40, 165, 95),
-        (bandeira_x, bandeira_y - 55, 32, 20),
-    )
-
-    posicao = (
-        int(jogo["x"]),
-        int(jogo["y"] - camera),
-    )
-
-    pygame.draw.circle(tela, PERSONAGEM, posicao, raio)
-    pygame.draw.circle(tela, BRANCO, posicao, raio, 2)
+    pygame.draw.circle(tela, PERSONAGEM,
+                       (int(jogo["x"]), int(jogo["y"] - camera)), raio)
+    pygame.draw.circle(tela, BRANCO,
+                       (int(jogo["x"]), int(jogo["y"] - camera)), raio, 2)
 
     agua_tela = max(0, int(jogo["agua_y"] - camera))
-
     if agua_tela < altura:
-        pygame.draw.rect(
-            tela,
-            AZUL,
-            (0, agua_tela, compri, altura - agua_tela),
-        )
+        pygame.draw.rect(tela, AZUL, (0, agua_tela, compri, altura - agua_tela))
+        pygame.draw.line(tela, (150, 220, 255),
+                         (0, agua_tela), (compri, agua_tela), 4)
 
-        pygame.draw.line(
-            tela,
-            (150, 220, 255),
-            (0, agua_tela),
-            (compri, agua_tela),
-            4,
-        )
-
-    pygame.draw.rect(
-        tela,
-        BRANCO,
-        (10, altura - 35, 85, 25),
-    )
-
-    escrever(
-        tela,
-        fonte_pequena,
-        f"Vidas: {jogo['vidas']}",
-        18,
-        altura - 31,
-    )
+    pygame.draw.rect(tela, BRANCO, (10, altura - 35, 85, 25))
+    escrever(tela, fonte_pequena, f"Vidas: {jogo['vidas']}", 18, altura - 31)
 
     if jogo["estado"] != "jogando":
-        pygame.draw.rect(
-            tela,
-            TEXTO,
-            (20, 250, compri - 40, 180),
-        )
+        pygame.draw.rect(tela, TEXTO, (20, 250, compri - 40, 180))
 
         if jogo["estado"] == "venceu":
             titulo = "VOCE ESCAPOU!"
@@ -223,105 +170,55 @@ def desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande):
             titulo = "FIM DE JOGO"
             mensagem = "A enchente venceu desta vez."
 
-        imagem = fonte_grande.render(
-            titulo,
-            True,
-            BRANCO,
-        )
-
-        tela.blit(
-            imagem,
-            ((compri - imagem.get_width()) // 2, 275),
-        )
-
-        escrever(
-            tela,
-            fonte_pequena,
-            mensagem,
-            45,
-            330,
-            BRANCO,
-        )
-
-        escrever(
-            tela,
-            fonte_pequena,
-            "R: jogar de novo | Esc: sair",
-            45,
-            375,
-            BRANCO,
-        )
+        imagem = fonte_grande.render(titulo, True, BRANCO)
+        tela.blit(imagem, ((compri - imagem.get_width()) // 2, 275))
+        escrever(tela, fonte_pequena, mensagem, 45, 330, BRANCO)
+        escrever(tela, fonte_pequena, "R: jogar de novo | Esc: sair", 45, 375, BRANCO)
 
 
 def main():
     pygame.display.init()
     pygame.font.init()
-
     tela = pygame.display.set_mode((compri, altura))
     pygame.display.set_caption("Parkour da enchente")
-
     relogio = pygame.time.Clock()
-
+    pasta = Path(__file__).resolve().parent
+    fundo = pygame.image.load(
+        str(pasta / "imagem.png")
+    ).convert()
+    fundo = pygame.transform.scale(fundo, (compri, F_altura))
     fonte = pygame.font.Font(None, 30)
     fonte_pequena = pygame.font.Font(None, 23)
     fonte_grande = pygame.font.Font(None, 42)
-
     jogo = criar_jogo()
-
     rodando = True
 
     while rodando:
-        pular_agora = False
+        pular = False
 
         for evento in pygame.event.get():
-
             if evento.type == pygame.QUIT:
                 rodando = False
-
             elif evento.type == pygame.KEYDOWN:
-
                 if evento.key == pygame.K_ESCAPE:
                     rodando = False
-
-                elif evento.key in (
-                    pygame.K_SPACE,
-                    pygame.K_UP,
-                ):
-                    pular_agora = True
-
-                elif (
-                    evento.key == pygame.K_r
-                    and jogo["estado"] != "jogando"
-                ):
+                elif evento.key in (pygame.K_SPACE, pygame.K_UP):
+                    pular = True
+                elif evento.key == pygame.K_r and jogo["estado"] != "jogando":
                     jogo = criar_jogo()
 
         if not rodando:
             break
 
         teclas = pygame.key.get_pressed()
-
         direcao = 0
-
         if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
             direcao -= 1
-
         if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
             direcao += 1
 
-        atualizar_jogo(
-            jogo,
-            direcao,
-            pular_agora,
-        )
-
-        desenhar_jogo(
-            tela,
-            jogo,
-            fonte,
-            fonte_pequena,
-            fonte_grande,
-        )
-
+        atualizar_jogo(jogo, direcao, pular)
+        desenhar_jogo(tela, jogo, fonte, fonte_pequena, fonte_grande, fundo)
         pygame.display.update()
         relogio.tick(vel)
 
