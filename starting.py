@@ -235,7 +235,7 @@ def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
 
     escrever_centralizado(
         tela, fonte_pequena,
-        "Suba pelas plataformas e escape da enchente!", 200,
+        "Suba pelas plataformas e escape da lava!", 200,
     )
 
     escrever_centralizado(
@@ -250,7 +250,7 @@ def desenhar_instrucoes(tela, fonte, fonte_pequena, fonte_grande):
 
     escrever_centralizado(
         tela, fonte_pequena,
-        "Você tem 3 vidas. Evite tocar na água.", 380,
+        "Você tem 3 vidas. Evite tocar na lava.", 380,
     )
 
     escrever_centralizado(
@@ -312,8 +312,44 @@ def carregar_sprites(pasta):
     return sprites
 
 
+def carregar_lava(pasta):
+    imagem = pygame.image.load(str(pasta / "lava.png")).convert_alpha()
+    recorte = imagem.get_bounding_rect(min_alpha=8)
+
+    if recorte.width == 0 or recorte.height == 0:
+        raise ValueError("A imagem lava.png está totalmente transparente.")
+
+    imagem = imagem.subsurface(recorte).copy()
+    altura_textura = max(1, round(imagem.get_height() * compri / imagem.get_width()))
+    topo = pygame.transform.smoothscale(imagem, (compri, altura_textura))
+
+    inicio_corpo = topo.get_height() * 2 // 3
+    corpo = topo.subsurface(
+        (0, inicio_corpo, compri, topo.get_height() - inicio_corpo)
+    ).copy().convert()
+
+    return topo, corpo
+
+def desenhar_lava(tela, y_lava, lava):
+    if y_lava >= altura:
+        return
+
+    topo, corpo = lava
+    altura_corpo = corpo.get_height()
+    y_corpo = y_lava + topo.get_height()
+
+    if y_corpo < 0:
+        y_corpo += ((-y_corpo) // altura_corpo) * altura_corpo
+
+    for y in range(y_corpo, altura, altura_corpo):
+        tela.blit(corpo, (0, y))
+
+    if y_lava + topo.get_height() > 0:
+        tela.blit(topo, (0, y_lava))
+
+
 def desenhar_jogo(
-    tela, jogo, fonte, fonte_pequena, fonte_grande, fundo, sprites
+    tela, jogo, fonte, fonte_pequena, fonte_grande, fundo, sprites, lava
 ):
     camera = jogo["camera_y"]
 
@@ -413,23 +449,8 @@ def desenhar_jogo(
 
     tela.blit(imagem, retangulo)
 
-    agua_tela = max(
-        0,
-        int(jogo["agua_y"] - camera),
-    )
-
-    if agua_tela < altura:
-        pygame.draw.rect(
-            tela, LARANJA,
-            (0, agua_tela, compri, altura - agua_tela),
-        )
-
-        pygame.draw.line(
-            tela, LARANJA_CLARO,
-            (0, agua_tela),
-            (compri, agua_tela),
-            4,
-        )
+    y_lava = int(jogo["agua_y"] - camera)
+    desenhar_lava(tela, y_lava, lava)
 
     pygame.draw.rect(
         tela, BRANCO,
@@ -453,7 +474,7 @@ def desenhar_jogo(
             mensagem = "Voce chegou ao lugar seguro."
         else:
             titulo = "FIM DE JOGO"
-            mensagem = "A enchente venceu desta vez."
+            mensagem = "A lava te alcançou desta vez."
 
         imagem = fonte_grande.render(
             titulo, True, BRANCO,
@@ -485,7 +506,7 @@ def main():
     )
 
     pygame.display.set_caption(
-        "Parkour da enchente"
+        "Parkour da lava"
     )
 
     pasta = Path(__file__).resolve().parent
@@ -500,6 +521,7 @@ def main():
 
     
     sprites = carregar_sprites(pasta)
+    lava = carregar_lava(pasta)
 
     
     fundo = pygame.image.load(
@@ -521,8 +543,8 @@ def main():
     tela_atual = "menu"
 
     botoes = {
-        "Jogar": pygame.Rect(110, 265, 200, 65),
-        "Sair": pygame.Rect(110, 365, 200, 65),
+        "Jogar": pygame.Rect(110, 480, 200, 65),
+        "Sair": pygame.Rect(110, 570, 200, 65),
     }
 
     rodando = True
@@ -612,6 +634,7 @@ def main():
                 fonte_grande,
                 fundo,
                 sprites,
+                lava,
             )
 
         pygame.display.update()
